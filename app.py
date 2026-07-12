@@ -177,7 +177,7 @@ Always output in this EXACT JSON format:
   "catalysts_ja": ["カタリスト1", "カタリスト2"]
 }"""
 
-def run_analysis(ticker, overview, quote, earnings, macro):
+def run_analysis(ticker, overview, quote, earnings, macro, horizon="mid"):
     prompt = f"""Analyze {ticker} using the 3-layer framework.
 
 COMPANY DATA:
@@ -206,7 +206,24 @@ USD/JPY: {macro.get('usdyen')} | EUR/USD: {macro.get('eurusd')}
 
 Company Description: {overview.get('description')}
 
-Apply the 3-layer framework. Output ONLY valid compact JSON (no markdown, no line breaks in strings). Keep each key_points list to max 2 items. Keep descriptions under 100 chars each."""
+INVESTMENT HORIZON: {horizon_label}
+{horizon_context}
+
+Apply the 3-layer framework with the above horizon in mind. Weight your scoring accordingly.
+Output ONLY valid compact JSON (no markdown, no line breaks in strings). Keep each key_points list to max 2 items. Keep descriptions under 100 chars each."""
+
+    horizon_labels = {
+        'short': 'SHORT TERM (1-3 months)',
+        'mid':   'MID TERM (3-12 months)',
+        'long':  'LONG TERM (1-3 years)',
+    }
+    horizon_contexts = {
+        'short': 'Focus on: technicals, supply/demand, IV, short interest, near-term catalysts. Layer 3 (valuation/momentum) is most important. Verdict: is NOW a good entry point?',
+        'mid':   'Focus on: earnings momentum, guidance, sector rotation, margin trends. Layer 2 (fundamentals) is most important. Verdict: will next earnings cycle drive upside?',
+        'long':  'Focus on: competitive moat, TAM, management quality, macro cycle positioning, balance sheet. Layer 1 (macro) + business durability are most important. Verdict: is this a 3-year compounder?',
+    }
+    horizon_label = horizon_labels.get(horizon, horizon_labels['mid'])
+    horizon_context = horizon_contexts.get(horizon, horizon_contexts['mid'])
 
     try:
         msg = client.messages.create(
@@ -251,6 +268,7 @@ def analyze():
     if not ticker:
         return jsonify({'error': 'Ticker required'}), 400
 
+    horizon  = data.get('horizon', 'mid')
     overview = get_overview(ticker)
     quote    = get_quote(ticker)
     earnings = get_earnings(ticker)
@@ -259,12 +277,13 @@ def analyze():
     if overview.get('name') == ticker and overview.get('sector') == 'N/A':
         return jsonify({'error': f'Ticker "{ticker}" not found. Please check the symbol.'}), 404
 
-    result = run_analysis(ticker, overview, quote, earnings, macro)
+    result = run_analysis(ticker, overview, quote, earnings, macro, horizon)
     if 'error' in result:
         return jsonify(result), 500
 
     return jsonify({
         'ticker':   ticker,
+        'horizon':  horizon,
         'name':     overview.get('name'),
         'price':    quote.get('price'),
         'change':   quote.get('change_pct'),
