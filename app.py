@@ -216,12 +216,26 @@ Apply the 3-layer decision framework rigorously. Look for inter-layer distortion
             messages=[{'role': 'user', 'content': prompt}]
         )
         text = msg.content[0].text.strip()
-        # Strip markdown if present
-        if text.startswith('```'):
-            text = text.split('```')[1]
-            if text.startswith('json'):
-                text = text[4:]
-        return json.loads(text)
+        # Strip markdown code blocks
+        if '```' in text:
+            parts = text.split('```')
+            for part in parts:
+                part = part.strip()
+                if part.startswith('json'):
+                    part = part[4:].strip()
+                if part.startswith('{'):
+                    text = part
+                    break
+        # Find JSON object boundaries
+        start = text.find('{')
+        end = text.rfind('}')
+        if start != -1 and end != -1:
+            text = text[start:end+1]
+        try:
+            return json.loads(text)
+        except Exception:
+            text = text.replace('\n', ' ').replace('\r', '')
+            return json.loads(text)
     except Exception as e:
         return {'error': str(e)}
 
