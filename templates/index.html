@@ -181,7 +181,7 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:1
 
 <script>
 var LANG = 'en';
-var history = JSON.parse(localStorage.getItem('de_history') || '[]');
+var searchHistory = JSON.parse(localStorage.getItem('de_history') || '[]');
 
 function setLang(l) {
   LANG = l;
@@ -350,16 +350,16 @@ function toggleRaw(btn) {
 }
 
 function saveHistory(ticker, verdict) {
-  history = history.filter(function(h){return h.ticker !== ticker;});
-  history.unshift({ticker:ticker, verdict:verdict});
-  if (history.length > 8) history = history.slice(0,8);
-  localStorage.setItem('de_history', JSON.stringify(history));
+  searchHistory = searchHistory.filter(function(h){return h.ticker !== ticker;});
+  searchHistory.unshift({ticker:ticker, verdict:verdict});
+  if (searchHistory.length > 8) searchHistory = searchHistory.slice(0,8);
+  localStorage.setItem('de_history', JSON.stringify(searchHistory));
   renderHistory();
 }
 
 function renderHistory() {
-  if (!history.length) return;
-  var chips = history.map(function(h) {
+  if (!searchHistory.length) return;
+  var chips = searchHistory.map(function(h) {
     var vc = verdictClass(h.verdict);
     var cls = vc.includes('buy') ? 'chip-buy' : vc.includes('pass') ? 'chip-pass' : 'chip-watch';
     return '<span class="chip" onclick="searchTicker(\''+h.ticker+'\')">'+
