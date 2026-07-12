@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision Engine — arketingm</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080c12;--surface:#0f1419;--surface2:#141b22;--border:rgba(255,255,255,0.07);
+  --accent:#00d4a0;--accent2:#4f9eff;--red:#ef4444;--amber:#f59e0b;--green:#10b981;
+  --text:#e2e8f0;--text2:#8899aa;--text3:#4a5568;
+  --buy:#10b981;--strong-buy:#00d4a0;--watch:#f59e0b;--pass:#ef4444;--strong-pass:#dc2626;
+}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;padding:0 0 80px}
+
+/* Header */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-size:13px;font-weight:700;letter-spacing:.12em;color:var(--accent)}
+.logo span{color:var(--text2);font-weight:400}
+.tagline{font-size:10px;color:var(--text3);letter-spacing:.06em;font-family:'DM Mono',monospace}
+
+/* Search */
+.search-wrap{max-width:680px;margin:48px auto 0;padding:0 20px}
+.search-label{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);font-family:'DM Mono',monospace;margin-bottom:10px}
+.search-box{display:flex;gap:10px}
+.search-input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 18px;font-size:16px;font-family:'DM Mono',monospace;color:var(--text);letter-spacing:.06em;outline:none;transition:border-color .2s}
+.search-input:focus{border-color:var(--accent)}
+.search-input::placeholder{color:var(--text3)}
+.search-btn{background:var(--accent);border:none;border-radius:8px;padding:14px 24px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;color:#000;cursor:pointer;transition:opacity .2s;white-space:nowrap}
+.search-btn:hover{opacity:.85}
+.search-btn:disabled{opacity:.4;cursor:not-allowed}
+.lang-toggle{display:flex;gap:4px;margin-top:12px;justify-content:flex-end}
+.lang-btn{background:none;border:0.5px solid var(--border);border-radius:4px;padding:4px 10px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .15s;font-family:'DM Mono',monospace}
+.lang-btn.active{background:rgba(79,158,255,0.15);border-color:var(--accent2);color:var(--accent2)}
+
+/* Loading */
+#loading{display:none;text-align:center;padding:60px 20px;color:var(--text2)}
+.spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-text{font-size:12px;font-family:'DM Mono',monospace;letter-spacing:.06em}
+
+/* Error */
+#error-box{display:none;max-width:680px;margin:24px auto;padding:14px 18px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#fca5a5;font-size:13px;text-align:center}
+
+/* Result */
+#result{display:none;max-width:900px;margin:32px auto;padding:0 20px}
+
+/* Verdict card */
+.verdict-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;margin-bottom:20px;position:relative;overflow:hidden}
+.verdict-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.verdict-card.strong-buy::before{background:var(--strong-buy)}
+.verdict-card.buy::before{background:var(--buy)}
+.verdict-card.watch::before{background:var(--watch)}
+.verdict-card.pass::before{background:var(--pass)}
+.verdict-card.strong-pass::before{background:var(--strong-pass)}
+.verdict-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.ticker-block .ticker{font-size:28px;font-weight:700;font-family:'DM Mono',monospace;letter-spacing:.04em}
+.ticker-block .company{font-size:14px;color:var(--text2);margin-top:2px}
+.ticker-block .price{font-size:13px;font-family:'DM Mono',monospace;margin-top:6px}
+.price-up{color:var(--green)}
+.price-down{color:var(--red)}
+.verdict-badge{text-align:right}
+.badge{display:inline-block;padding:8px 20px;border-radius:6px;font-size:15px;font-weight:700;letter-spacing:.08em}
+.badge.strong-buy{background:rgba(0,212,160,0.15);color:var(--strong-buy);border:1px solid rgba(0,212,160,0.3)}
+.badge.buy{background:rgba(16,185,129,0.15);color:var(--buy);border:1px solid rgba(16,185,129,0.3)}
+.badge.watch{background:rgba(245,158,11,0.15);color:var(--watch);border:1px solid rgba(245,158,11,0.3)}
+.badge.pass{background:rgba(239,68,68,0.15);color:var(--pass);border:1px solid rgba(239,68,68,0.3)}
+.badge.strong-pass{background:rgba(220,38,38,0.15);color:var(--strong-pass);border:1px solid rgba(220,38,38,0.3)}
+.confidence{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;margin-top:6px;text-align:right}
+.conf-bar{width:100px;height:4px;background:var(--border);border-radius:2px;margin:4px 0 0 auto}
+.conf-fill{height:100%;border-radius:2px;background:var(--accent)}
+.verdict-summary{margin-top:20px;font-size:14px;color:var(--text2);line-height:1.7;padding:14px 16px;background:var(--surface2);border-radius:8px;border-left:3px solid var(--accent)}
+
+/* Layer scores */
+.layers{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+@media(max-width:600px){.layers{grid-template-columns:1fr}}
+.layer-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px}
+.layer-title{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:10px}
+.layer-name{font-size:14px;font-weight:600;margin-bottom:8px}
+.layer-signal{font-size:11px;padding:3px 8px;border-radius:4px;font-family:'DM Mono',monospace;font-weight:500;display:inline-block;margin-bottom:10px}
+.signal-green{background:rgba(16,185,129,0.15);color:var(--green)}
+.signal-amber{background:rgba(245,158,11,0.15);color:var(--amber)}
+.signal-red{background:rgba(239,68,68,0.15);color:var(--red)}
+.score-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.score-num{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;min-width:32px}
+.score-bar{flex:1;height:6px;background:var(--border);border-radius:3px}
+.score-fill{height:100%;border-radius:3px}
+.layer-points{list-style:none;display:flex;flex-direction:column;gap:5px}
+.layer-points li{font-size:12px;color:var(--text2);line-height:1.5;display:flex;gap:6px}
+.layer-points li::before{content:'→';color:var(--text3);flex-shrink:0}
+
+/* Distortion box */
+.distortion-box{background:var(--surface);border:1px solid rgba(0,212,160,0.25);border-radius:10px;padding:18px;margin-bottom:20px}
+.dist-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.dist-icon{font-size:18px}
+.dist-title{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-family:'DM Mono',monospace;font-weight:600}
+.dist-body{font-size:13px;color:var(--text2);line-height:1.7}
+
+/* Risks & Catalysts */
+.rc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+@media(max-width:500px){.rc-grid{grid-template-columns:1fr}}
+.rc-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
+.rc-title{font-size:10px;letter-spacing:.1em;text-transform:uppercase;font-family:'DM Mono',monospace;margin-bottom:10px}
+.rc-title.risk{color:var(--red)}
+.rc-title.catalyst{color:var(--green)}
+.rc-list{list-style:none;display:flex;flex-direction:column;gap:6px}
+.rc-list li{font-size:12px;color:var(--text2);line-height:1.5;display:flex;gap:6px}
+.rc-list.risk li::before{content:'⚠';font-size:10px;flex-shrink:0;margin-top:1px}
+.rc-list.catalyst li::before{content:'⚡';font-size:10px;flex-shrink:0;margin-top:1px}
+
+/* Raw data */
+.raw-toggle{background:none;border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:11px;color:var(--text2);cursor:pointer;font-family:'DM Mono',monospace;letter-spacing:.05em;display:block;margin:0 auto 12px;transition:all .15s}
+.raw-toggle:hover{border-color:var(--accent2);color:var(--accent2)}
+.raw-data{display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px}
+.raw-data.open{display:block}
+.raw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.raw-item{display:flex;flex-direction:column;gap:3px}
+.raw-key{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.05em}
+.raw-val{font-size:13px;color:var(--text);font-family:'DM Mono',monospace}
+
+/* Disclaimer */
+.disclaimer{max-width:900px;margin:0 auto;padding:0 20px 20px;font-size:10px;color:var(--text3);text-align:center;line-height:1.6;font-family:'DM Mono',monospace}
+
+/* Recent */
+.recent-wrap{max-width:680px;margin:24px auto 0;padding:0 20px}
+.recent-title{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:8px}
+.recent-chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);cursor:pointer;transition:all .15s}
+.chip:hover{border-color:var(--accent2);color:var(--accent2)}
+.chip .chip-verdict{font-size:9px;margin-left:4px;font-weight:600}
+.chip-buy{color:var(--buy)}
+.chip-watch{color:var(--watch)}
+.chip-pass{color:var(--pass)}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">DECISION ENGINE <span>by arketingm</span></div>
+    <div class="tagline">3-LAYER STOCK ANALYSIS FRAMEWORK</div>
+  </div>
+  <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;text-align:right;line-height:1.6">
+    Layer 1: Macro<br>Layer 2: Fundamentals<br>Layer 3: Valuation
+  </div>
+</header>
+
+<div class="search-wrap">
+  <div class="search-label">Enter ticker symbol</div>
+  <div class="search-box">
+    <input id="ticker-input" class="search-input" type="text" placeholder="NVDA, AAPL, TSLA..." maxlength="10" autocomplete="off" autocapitalize="characters">
+    <button id="analyze-btn" class="search-btn" onclick="analyze()">Analyze →</button>
+  </div>
+  <div class="lang-toggle">
+    <button class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" id="btn-ja" onclick="setLang('ja')">JA</button>
+  </div>
+</div>
+
+<div class="recent-wrap" id="recent-wrap" style="display:none">
+  <div class="recent-title">Recent searches</div>
+  <div class="recent-chips" id="recent-chips"></div>
+</div>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="load-text" id="load-text">Fetching data & running 3-layer analysis…</div>
+</div>
+
+<div id="error-box"></div>
+
+<div id="result"></div>
+
+<div class="disclaimer">
+  ⚠ This tool is for informational and educational purposes only. It does not constitute investment advice.<br>
+  Always conduct your own research before making investment decisions. Past performance is not indicative of future results.<br>
+  本ツールは情報提供・教育目的のみであり、投資助言ではありません。投資判断はご自身の責任で行ってください。
+</div>
+
+<script>
+var LANG = 'en';
+var history = JSON.parse(localStorage.getItem('de_history') || '[]');
+
+function setLang(l) {
+  LANG = l;
+  document.getElementById('btn-en').className = 'lang-btn' + (l==='en'?' active':'');
+  document.getElementById('btn-ja').className = 'lang-btn' + (l==='ja'?' active':'');
+  var r = document.getElementById('result');
+  if (r.dataset.result) renderResult(JSON.parse(r.dataset.result));
+}
+
+document.getElementById('ticker-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') analyze();
+  this.value = this.value.toUpperCase();
+});
+
+function verdictClass(v) {
+  if (!v) return '';
+  v = v.toLowerCase().replace(' ', '-');
+  return v;
+}
+
+function signalClass(signal) {
+  var s = (signal || '').toLowerCase();
+  if (['tailwind','strong','undervalued'].includes(s)) return 'signal-green';
+  if (['headwind','weak','overvalued'].includes(s)) return 'signal-red';
+  return 'signal-amber';
+}
+
+function scoreColor(s) {
+  if (s >= 7) return '#10b981';
+  if (s >= 5) return '#f59e0b';
+  return '#ef4444';
+}
+
+function formatChange(chg) {
+  if (!chg || chg === 'N/A') return '';
+  chg = chg.replace('%','').trim();
+  var n = parseFloat(chg);
+  var cls = n >= 0 ? 'price-up' : 'price-down';
+  var sign = n >= 0 ? '+' : '';
+  return '<span class="'+cls+'">'+sign+chg+'%</span>';
+}
+
+function renderResult(data) {
+  var a = data.analysis;
+  var l = LANG;
+  var vc = verdictClass(a.verdict);
+
+  var layerNames = {
+    en: ['Macro Environment', 'Fundamental Engine', 'Supply & Demand'],
+    ja: ['マクロ環境', 'ファンダメンタルズ', '需給・バリュエーション']
+  };
+
+  var signalLabels = {
+    TAILWIND:'TAILWIND',NEUTRAL:'NEUTRAL',HEADWIND:'HEADWIND',
+    STRONG:'STRONG',WEAK:'WEAK',
+    UNDERVALUED:'UNDERVALUED',FAIR:'FAIR',OVERVALUED:'OVERVALUED'
+  };
+  var signalLabelsJa = {
+    TAILWIND:'追い風',NEUTRAL:'中立',HEADWIND:'向かい風',
+    STRONG:'強い',WEAK:'弱い',
+    UNDERVALUED:'割安',FAIR:'適正',OVERVALUED:'割高'
+  };
+
+  function layerHTML(layer, data, idx) {
+    var name = layerNames[l][idx];
+    var signal = l==='en' ? (signalLabels[data.signal]||data.signal) : (signalLabelsJa[data.signal]||data.signal);
+    var points = l==='en' ? data.key_points_en : data.key_points_ja;
+    var sc = data.score || 5;
+    return '<div class="layer-card">' +
+      '<div class="layer-title">Layer '+(idx+1)+'</div>' +
+      '<div class="layer-name">'+name+'</div>' +
+      '<span class="layer-signal '+signalClass(data.signal)+'">'+signal+'</span>' +
+      '<div class="score-row">' +
+        '<div class="score-num" style="color:'+scoreColor(sc)+'">'+sc+'</div>' +
+        '<div class="score-bar"><div class="score-fill" style="width:'+(sc*10)+'%;background:'+scoreColor(sc)+'"></div></div>' +
+        '<div style="font-size:10px;color:var(--text3);font-family:\'DM Mono\',monospace">/10</div>' +
+      '</div>' +
+      '<ul class="layer-points">'+(points||[]).map(function(p){return '<li>'+p+'</li>';}).join('')+'</ul>' +
+    '</div>';
+  }
+
+  var distHTML = '';
+  if (a.distortion && a.distortion.found) {
+    var desc = l==='en' ? a.distortion.description_en : a.distortion.description_ja;
+    distHTML = '<div class="distortion-box">' +
+      '<div class="dist-header"><span class="dist-icon">⚡</span><span class="dist-title">'+(l==='en'?'Inter-Layer Distortion Detected':'レイヤー間の歪み（Distortion）を検出')+'</span></div>' +
+      '<div class="dist-body">'+desc+'</div>' +
+    '</div>';
+  }
+
+  var risks = l==='en' ? a.risks_en : a.risks_ja;
+  var catalysts = l==='en' ? a.catalysts_en : a.catalysts_ja;
+
+  var verdictLabel = l==='en' ? a.verdict : a.verdict_ja;
+  var summary = l==='en' ? a.summary_en : a.summary_ja;
+  var confLabel = l==='en' ? 'Confidence' : '確信度';
+  var rawLabel = l==='en' ? '▾ Show raw data' : '▾ 生データを表示';
+  var riskLabel = l==='en' ? 'Key Risks' : '主要リスク';
+  var catalystLabel = l==='en' ? 'Catalysts' : 'カタリスト';
+
+  var raw = data.raw || {};
+  var ov = raw.overview || {};
+  var rawItems = [
+    {k:'PE Ratio',v:ov.pe_ratio},{k:'PB Ratio',v:ov.pb_ratio},{k:'PS Ratio',v:ov.ps_ratio},
+    {k:'EPS TTM',v:ov.eps_ttm},{k:'EPS Growth',v:ov.eps_growth},{k:'Rev Growth',v:ov.revenue_growth},
+    {k:'Op Margin',v:ov.op_margin},{k:'Profit Margin',v:ov.profit_margin},
+    {k:'Beta',v:ov.beta},{k:'Div Yield',v:ov.dividend_yield},
+    {k:'52W High',v:'$'+ov['52w_high']},{k:'52W Low',v:'$'+ov['52w_low']},
+    {k:'Analyst Target',v:'$'+ov.analyst_target},{k:'Market Cap',v:ov.mkt_cap},
+    {k:'US 10Y',v:(raw.macro||{}).us10y+'%'},{k:'WTI Oil',v:'$'+(raw.macro||{}).oil},
+    {k:'USD/JPY',v:(raw.macro||{}).usdyen},{k:'EUR/USD',v:(raw.macro||{}).eurusd},
+  ];
+
+  var html =
+    '<div class="verdict-card '+vc+'">' +
+      '<div class="verdict-header">' +
+        '<div class="ticker-block">' +
+          '<div class="ticker">'+data.ticker+'</div>' +
+          '<div class="company">'+data.name+'</div>' +
+          '<div class="price" style="margin-top:6px">' +
+            '<span style="font-family:\'DM Mono\',monospace;font-size:18px;font-weight:600">$'+data.price+'</span> ' +
+            formatChange(data.change) +
+          '</div>' +
+        '</div>' +
+        '<div class="verdict-badge">' +
+          '<div class="badge '+vc+'">'+verdictLabel+'</div>' +
+          '<div class="confidence">'+confLabel+': '+a.confidence+'%</div>' +
+          '<div class="conf-bar"><div class="conf-fill" style="width:'+a.confidence+'%"></div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="verdict-summary">'+summary+'</div>' +
+    '</div>' +
+
+    '<div class="layers">' +
+      layerHTML('layer1', a.layer1||{}, 0) +
+      layerHTML('layer2', a.layer2||{}, 1) +
+      layerHTML('layer3', a.layer3||{}, 2) +
+    '</div>' +
+
+    distHTML +
+
+    '<div class="rc-grid">' +
+      '<div class="rc-card"><div class="rc-title risk">'+riskLabel+'</div><ul class="rc-list risk">'+(risks||[]).map(function(r){return '<li>'+r+'</li>';}).join('')+'</ul></div>' +
+      '<div class="rc-card"><div class="rc-title catalyst">'+catalystLabel+'</div><ul class="rc-list catalyst">'+(catalysts||[]).map(function(c){return '<li>'+c+'</li>';}).join('')+'</ul></div>' +
+    '</div>' +
+
+    '<button class="raw-toggle" onclick="toggleRaw(this)">'+rawLabel+'</button>' +
+    '<div class="raw-data" id="raw-data">' +
+      '<div class="raw-grid">' +
+        rawItems.map(function(it){return '<div class="raw-item"><span class="raw-key">'+it.k+'</span><span class="raw-val">'+(it.v||'N/A')+'</span></div>';}).join('') +
+      '</div>' +
+    '</div>';
+
+  var resultEl = document.getElementById('result');
+  resultEl.innerHTML = html;
+  resultEl.dataset.result = JSON.stringify(data);
+  resultEl.style.display = 'block';
+}
+
+function toggleRaw(btn) {
+  var el = document.getElementById('raw-data');
+  el.classList.toggle('open');
+  btn.textContent = el.classList.contains('open') ?
+    (LANG==='en'?'▴ Hide raw data':'▴ 生データを隠す') :
+    (LANG==='en'?'▾ Show raw data':'▾ 生データを表示');
+}
+
+function saveHistory(ticker, verdict) {
+  history = history.filter(function(h){return h.ticker !== ticker;});
+  history.unshift({ticker:ticker, verdict:verdict});
+  if (history.length > 8) history = history.slice(0,8);
+  localStorage.setItem('de_history', JSON.stringify(history));
+  renderHistory();
+}
+
+function renderHistory() {
+  if (!history.length) return;
+  var chips = history.map(function(h) {
+    var vc = verdictClass(h.verdict);
+    var cls = vc.includes('buy') ? 'chip-buy' : vc.includes('pass') ? 'chip-pass' : 'chip-watch';
+    return '<span class="chip" onclick="searchTicker(\''+h.ticker+'\')">'+
+      h.ticker+'<span class="chip-verdict '+cls+'">'+h.verdict+'</span></span>';
+  }).join('');
+  document.getElementById('recent-chips').innerHTML = chips;
+  document.getElementById('recent-wrap').style.display = 'block';
+}
+
+function searchTicker(t) {
+  document.getElementById('ticker-input').value = t;
+  analyze();
+}
+
+async function analyze() {
+  var ticker = document.getElementById('ticker-input').value.trim().toUpperCase();
+  if (!ticker) return;
+
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('error-box').style.display = 'none';
+  document.getElementById('analyze-btn').disabled = true;
+
+  var msgs = [
+    'Fetching Layer 1: Macro data (FRED)…',
+    'Fetching Layer 2: Fundamentals (Alpha Vantage)…',
+    'Fetching Layer 3: Valuation & earnings…',
+    'Running 3-layer analysis via Claude AI…',
+    'Scanning for inter-layer distortions…',
+  ];
+  var mi = 0;
+  var interval = setInterval(function() {
+    if (mi < msgs.length) {
+      document.getElementById('load-text').textContent = msgs[mi++];
+    }
+  }, 2200);
+
+  try {
+    var resp = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ticker: ticker})
+    });
+    var data = await resp.json();
+    clearInterval(interval);
+
+    if (!resp.ok || data.error) {
+      document.getElementById('error-box').textContent = data.error || 'Analysis failed. Please try again.';
+      document.getElementById('error-box').style.display = 'block';
+    } else {
+      renderResult(data);
+      saveHistory(ticker, data.analysis.verdict);
+    }
+  } catch(e) {
+    clearInterval(interval);
+    document.getElementById('error-box').textContent = 'Network error. Please try again.';
+    document.getElementById('error-box').style.display = 'block';
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('analyze-btn').disabled = false;
+  }
+}
+
+renderHistory();
+</script>
+</body>
+</html>
