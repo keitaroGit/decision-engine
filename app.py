@@ -206,12 +206,12 @@ USD/JPY: {macro.get('usdyen')} | EUR/USD: {macro.get('eurusd')}
 
 Company Description: {overview.get('description')}
 
-Apply the 3-layer decision framework rigorously. Look for inter-layer distortions. Output ONLY valid JSON, no markdown, no explanation outside JSON."""
+Apply the 3-layer framework. Output ONLY valid compact JSON (no markdown, no line breaks in strings). Keep each key_points list to max 2 items. Keep descriptions under 100 chars each."""
 
     try:
         msg = client.messages.create(
             model='claude-sonnet-4-6',
-            max_tokens=2000,
+            max_tokens=3000,
             system=SYSTEM_PROMPT,
             messages=[{'role': 'user', 'content': prompt}]
         )
