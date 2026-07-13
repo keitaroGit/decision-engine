@@ -303,7 +303,7 @@ function renderResult(data) {
   var distHTML = '';
   if (a.distortion_found && a.distortion_en) {
     distHTML = '<div class="distortion-box">' +
-      '<div class="dist-header"><span class="dist-icon">lightning</span><span class="dist-title">'+(l==='en'?'Distortion Detected':'Distortion Detected')+'</span></div>' +
+      '<div class="dist-header"><span class="dist-icon">⚡</span><span class="dist-title">'+(l==='en'?'DISTORTION DETECTED':'歪み（Distortion）検出')+'</span></div>' +
       '<div class="dist-body">'+a.distortion_en+'</div>' +
     '</div>';
   }
@@ -337,7 +337,7 @@ function renderResult(data) {
           '<div class="conf-bar"><div class="conf-fill" style="width:'+a.confidence+'%"></div></div>' +
         '</div>' +
       '</div>' +
-      '<div class="verdict-summary">'+summary+'</div>' +
+      '<div class="verdict-summary">'+summary+'</div>' + (l==='ja' ? '<div style="font-size:11px;color:var(--text3);margin-top:8px;padding:6px 10px;background:var(--surface2);border-radius:4px">※ Analysis points are in English. Japanese AI translation coming soon.</div>' : '') +
     '</div>' +
     '<div class="layers">'+layerHTML('l1',l1,0)+layerHTML('l2',l2,1)+layerHTML('l3',l3,2)+'</div>' +
     distHTML +
@@ -433,7 +433,7 @@ async function analyze() {
     var resp = await fetch('/api/analyze', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ticker: ticker, horizon: HORIZON})
+      body: JSON.stringify({ticker: ticker, horizon: HORIZON, lang: LANG})
     });
     var data = await resp.json();
     clearInterval(interval);

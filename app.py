@@ -140,7 +140,7 @@ layer2 signal: STRONG, NEUTRAL, or WEAK
 layer3 signal: UNDERVALUED, FAIR, or OVERVALUED
 Output ONLY the JSON. No text before or after."""
 
-def run_analysis(ticker, overview, quote, earnings, macro, horizon='mid'):
+def run_analysis(ticker, overview, quote, earnings, macro, horizon='mid', lang='en'):
     horizon_map = {
         'short': 'SHORT TERM 1-3 months: weight technicals and near-term catalysts most',
         'mid':   'MID TERM 3-12 months: weight earnings momentum and margins most',
@@ -160,7 +160,7 @@ def run_analysis(ticker, overview, quote, earnings, macro, horizon='mid'):
         "Recent EPS surprises: " + str(earnings),
         "MACRO: US10Y=" + str(macro.get('us10y','')) + "% Oil=$" + str(macro.get('oil','')) + " USD/JPY=" + str(macro.get('usdyen','')),
         "",
-        "Output JSON only. ASCII characters only in all string values.",
+        "Output JSON only. ASCII characters only in all string values." + (" Write summary_en and all points in Japanese (but keep JSON keys in English)." if lang=="ja" else ""),
     ])
 
     try:
@@ -215,6 +215,7 @@ def analyze():
     data    = request.get_json()
     ticker  = data.get('ticker', '').upper().strip()
     horizon = data.get('horizon', 'mid')
+    lang    = data.get('lang', 'en')
 
     if not ticker:
         return jsonify({'error': 'Ticker required'}), 400
@@ -224,10 +225,11 @@ def analyze():
     earnings = get_earnings(ticker)
     macro    = get_macro()
 
-    if overview.get('name') == ticker and overview.get('sector') == 'N/A':
+    # Only reject if Alpha Vantage returns completely empty data
+    if not overview.get('name') or overview.get('name') == '':
         return jsonify({'error': 'Ticker not found: ' + ticker}), 404
 
-    result = run_analysis(ticker, overview, quote, earnings, macro, horizon)
+    result = run_analysis(ticker, overview, quote, earnings, macro, horizon, lang)
 
     if 'error' in result:
         return jsonify(result), 500
