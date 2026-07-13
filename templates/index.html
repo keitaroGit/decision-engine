@@ -278,7 +278,7 @@ function renderResult(data) {
   }
 
   function layerHTML(layer, data, idx) {
-    var names = {en: ['Macro Environment','Fundamental Engine','Supply & Demand'], ja: ['macro kankyo','fandamentaru enjin','jukyuu baransu']};
+    var names = {en: ['Macro Environment','Fundamental Engine','Supply & Demand'], ja: ['マクロ環境','ファンダメンタルズ','需給・バリュエーション']};
     var name = names[l][idx];
     var signal = l==='en' ? (data.signal||'') : (data.signal_ja||data.signal||'');
     var points = data.points || [];
@@ -323,7 +323,7 @@ function renderResult(data) {
   ];
 
   var html =
-    '<button class="back-btn" onclick="goBack()">' + (l==='ja'?'Back to search':'Back to search') + '</button>' +
+    '<button class="back-btn" onclick="goBack()">' + (l==='ja'?'検索に戻る':'Back to search') + '</button>' +
     '<div class="verdict-card '+vc+'">' +
       '<div class="verdict-header">' +
         '<div class="ticker-block">' +
@@ -342,10 +342,10 @@ function renderResult(data) {
     '<div class="layers">'+layerHTML('l1',l1,0)+layerHTML('l2',l2,1)+layerHTML('l3',l3,2)+'</div>' +
     distHTML +
     '<div class="rc-grid">' +
-      '<div class="rc-card"><div class="rc-title risk">'+(l==='en'?'Key Risks':'Risks')+'</div><ul class="rc-list risk">'+risks.map(function(r){return '<li>'+r+'</li>';}).join('')+'</ul></div>' +
-      '<div class="rc-card"><div class="rc-title catalyst">'+(l==='en'?'Catalysts':'Catalysts')+'</div><ul class="rc-list catalyst">'+catalysts.map(function(c){return '<li>'+c+'</li>';}).join('')+'</ul></div>' +
+      '<div class="rc-card"><div class="rc-title risk">'+(l==='en'?'Key Risks':'主要リスク')+'</div><ul class="rc-list risk">'+risks.map(function(r){return '<li>'+r+'</li>';}).join('')+'</ul></div>' +
+      '<div class="rc-card"><div class="rc-title catalyst">'+(l==='en'?'Catalysts':'カタリスト')+'</div><ul class="rc-list catalyst">'+catalysts.map(function(c){return '<li>'+c+'</li>';}).join('')+'</ul></div>' +
     '</div>' +
-    '<button class="raw-toggle" onclick="toggleRaw(this)">' + (l==='en'?'Show raw data':'Show raw data') + '</button>' +
+    '<button class="raw-toggle" onclick="toggleRaw(this)">' + (l==='en'?'Show raw data':'生データを表示') + '</button>' +
     '<div class="raw-data" id="raw-data">' +
       '<div class="raw-grid">'+rawItems.map(function(it){return '<div class="raw-item"><span class="raw-key">'+it.k+'</span><span class="raw-val">'+(it.v||'N/A')+'</span></div>';}).join('')+'</div>' +
     '</div>';

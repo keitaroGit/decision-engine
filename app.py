@@ -94,16 +94,16 @@ def get_macro():
 
 # Japanese translation tables
 VERDICT_JA = {
-    'STRONG BUY': 'kyoi kaikomi',
-    'BUY': 'kaikomi',
-    'WATCH': 'yousu mi',
-    'PASS': 'miokuri',
-    'STRONG PASS': 'kyoi miokuri',
+    'STRONG BUY': '強い買い',
+    'BUY': '買い',
+    'WATCH': '様子見',
+    'PASS': '見送り',
+    'STRONG PASS': '強い 見送り',
 }
 
-SIGNAL1_JA = {'TAILWIND': 'oikaze', 'NEUTRAL': 'chuuritsu', 'HEADWIND': 'mukaikaze'}
-SIGNAL2_JA = {'STRONG': 'kyoi', 'NEUTRAL': 'chuuritsu', 'WEAK': 'jakui'}
-SIGNAL3_JA = {'UNDERVALUED': 'waiyasu', 'FAIR': 'tekisei', 'OVERVALUED': 'waridaka'}
+SIGNAL1_JA = {'TAILWIND': '追い風', 'NEUTRAL': '中立', 'HEADWIND': '向かい風'}
+SIGNAL2_JA = {'STRONG': '強い', 'NEUTRAL': '中立', 'WEAK': '弱い'}
+SIGNAL3_JA = {'UNDERVALUED': '割安', 'FAIR': '適正', 'OVERVALUED': '割高'}
 
 SYSTEM_PROMPT = """You are an investment analyst. Output ONLY a JSON object with NO Japanese text anywhere.
 All values must use ASCII characters only. No Unicode, no special chars, no curly quotes, no em dashes.
