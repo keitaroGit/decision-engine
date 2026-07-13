@@ -206,6 +206,52 @@ def run_analysis(ticker, overview, quote, earnings, macro, horizon='mid', lang='
     except Exception as e:
         return {'error': str(e)}
 
+
+def translate_to_japanese(data):
+    """Translate analysis text fields to Japanese using Claude"""
+    fields_to_translate = {
+        'summary': data.get('summary_en', ''),
+        'layer1_points': data.get('layer1', {}).get('points', []),
+        'layer2_points': data.get('layer2', {}).get('points', []),
+        'layer3_points': data.get('layer3', {}).get('points', []),
+        'risks': data.get('risks', []),
+        'catalysts': data.get('catalysts', []),
+        'distortion': data.get('distortion_en', ''),
+    }
+
+    prompt = "Translate these investment analysis texts to natural Japanese. Return ONLY a JSON object with the same keys. Keep numbers, tickers, and percentages as-is.\n\n" + json.dumps(fields_to_translate, ensure_ascii=True)
+
+    try:
+        msg = client.messages.create(
+            model='claude-sonnet-4-6',
+            max_tokens=1000,
+            system="You are a financial translator. Translate English investment analysis to Japanese. Return ONLY a valid JSON object with the same structure as input. No other text.",
+            messages=[{'role': 'user', 'content': prompt}]
+        )
+        raw = msg.content[0].text.strip()
+        start = raw.find('{')
+        end = raw.rfind('}')
+        if start != -1 and end != -1:
+            translated = json.loads(raw[start:end+1])
+            # Apply translations
+            if 'summary' in translated:
+                data['summary_ja'] = translated['summary']
+            if 'layer1_points' in translated:
+                data['layer1']['points_ja'] = translated['layer1_points']
+            if 'layer2_points' in translated:
+                data['layer2']['points_ja'] = translated['layer2_points']
+            if 'layer3_points' in translated:
+                data['layer3']['points_ja'] = translated['layer3_points']
+            if 'risks' in translated:
+                data['risks_ja'] = translated['risks']
+            if 'catalysts' in translated:
+                data['catalysts_ja'] = translated['catalysts']
+            if 'distortion' in translated and translated['distortion']:
+                data['distortion_ja'] = translated['distortion']
+    except Exception as e:
+        pass  # Keep English if translation fails
+    return data
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -233,6 +279,10 @@ def analyze():
 
     if 'error' in result:
         return jsonify(result), 500
+
+    # Translate to Japanese if requested
+    if lang == 'ja':
+        result = translate_to_japanese(result)
 
     return jsonify({
         'ticker':   ticker,

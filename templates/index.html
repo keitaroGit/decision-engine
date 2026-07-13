@@ -281,7 +281,7 @@ function renderResult(data) {
     var names = {en: ['Macro Environment','Fundamental Engine','Supply & Demand'], ja: ['マクロ環境','ファンダメンタルズ','需給・バリュエーション']};
     var name = names[l][idx];
     var signal = l==='en' ? (data.signal||'') : (data.signal_ja||data.signal||'');
-    var points = data.points || [];
+    var points = (l==='ja' && data.points_ja) ? data.points_ja : (data.points || []);
     var sc = data.score || 5;
     return '<div class="layer-card">' +
       '<div class="layer-title">Layer '+(idx+1)+'</div>' +
@@ -297,19 +297,20 @@ function renderResult(data) {
   }
 
   var verdictLabel = l==='en' ? a.verdict : (a.verdict_ja || a.verdict);
-  var summary = a.summary_en || '';
+  var summary = (l==='ja' && a.summary_ja) ? a.summary_ja : (a.summary_en || '');
   var horizonTag = data.horizon || 'mid';
 
   var distHTML = '';
   if (a.distortion_found && a.distortion_en) {
+    var distText = (l==='ja' && a.distortion_ja) ? a.distortion_ja : a.distortion_en;
     distHTML = '<div class="distortion-box">' +
       '<div class="dist-header"><span class="dist-icon">⚡</span><span class="dist-title">'+(l==='en'?'DISTORTION DETECTED':'歪み（Distortion）検出')+'</span></div>' +
-      '<div class="dist-body">'+a.distortion_en+'</div>' +
+      '<div class="dist-body">'+distText+'</div>' +
     '</div>';
   }
 
-  var risks = a.risks || [];
-  var catalysts = a.catalysts || [];
+  var risks = (l==='ja' && a.risks_ja) ? a.risks_ja : (a.risks || []);
+  var catalysts = (l==='ja' && a.catalysts_ja) ? a.catalysts_ja : (a.catalysts || []);
 
   var raw = data.raw || {};
   var ov = raw.overview || {};
@@ -337,7 +338,7 @@ function renderResult(data) {
           '<div class="conf-bar"><div class="conf-fill" style="width:'+a.confidence+'%"></div></div>' +
         '</div>' +
       '</div>' +
-      '<div class="verdict-summary">'+summary+'</div>' + (l==='ja' ? '<div style="font-size:11px;color:var(--text3);margin-top:8px;padding:6px 10px;background:var(--surface2);border-radius:4px">※ Analysis points are in English. Japanese AI translation coming soon.</div>' : '') +
+      '<div class="verdict-summary">'+summary+'</div>' +
     '</div>' +
     '<div class="layers">'+layerHTML('l1',l1,0)+layerHTML('l2',l2,1)+layerHTML('l3',l3,2)+'</div>' +
     distHTML +
