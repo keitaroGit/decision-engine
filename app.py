@@ -160,7 +160,7 @@ def run_analysis(ticker, overview, quote, earnings, macro, horizon='mid', lang='
         "Recent EPS surprises: " + str(earnings),
         "MACRO: US10Y=" + str(macro.get('us10y','')) + "% Oil=$" + str(macro.get('oil','')) + " USD/JPY=" + str(macro.get('usdyen','')),
         "",
-        "Output JSON only. ASCII characters only in all string values." + (" Write summary_en and all points in Japanese (but keep JSON keys in English)." if lang=="ja" else ""),
+        "Output JSON only." + (" IMPORTANT: Write ALL text values (summary_en, all points array items, risks, catalysts, distortion_en) in JAPANESE language. Keep JSON keys in English." if lang=="ja" else " Use English for all text values."),
     ])
 
     try:
