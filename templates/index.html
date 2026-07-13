@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-7W55D9H7MT"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-7W55D9H7MT');
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Decision Engine — arketingm</title>
@@ -445,6 +453,16 @@ async function analyze() {
     } else {
       renderResult(data);
       saveHistory(ticker, data.analysis.verdict);
+      // Track analysis event in Google Analytics
+      if (typeof gtag !== 'undefined') {
+        gtag('event', 'analyze', {
+          'ticker': ticker,
+          'verdict': data.analysis.verdict,
+          'horizon': HORIZON,
+          'lang': LANG,
+          'confidence': data.analysis.confidence
+        });
+      }
     }
   } catch(e) {
     clearInterval(interval);
