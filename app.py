@@ -41,7 +41,6 @@ def get_quote(ticker):
         return {
             'price':      q.get('05. price', 'N/A'),
             'change_pct': q.get('10. change percent', 'N/A'),
-            'volume':     q.get('06. volume', 'N/A'),
         }
     return cached('quote_' + ticker, fn)
 
@@ -51,7 +50,6 @@ def get_overview(ticker):
         return {
             'name':           d.get('Name', ticker),
             'sector':         d.get('Sector', 'N/A'),
-            'industry':       d.get('Industry', 'N/A'),
             'pe_ratio':       d.get('PERatio', 'N/A'),
             'pb_ratio':       d.get('PriceToBookRatio', 'N/A'),
             'ps_ratio':       d.get('PriceToSalesRatioTTM', 'N/A'),
@@ -72,31 +70,15 @@ def get_earnings(ticker):
     def fn():
         d = av({'function': 'EARNINGS', 'symbol': ticker})
         quarters = d.get('quarterlyEarnings', [])[:3]
-        result = []
-        for q in quarters:
-            result.append({
-                'date':         q.get('fiscalDateEnding', ''),
-                'reported_eps': q.get('reportedEPS', ''),
-                'est_eps':      q.get('estimatedEPS', ''),
-                'surprise':     q.get('surprisePercentage', ''),
-            })
-        return result
+        return [{'date': q.get('fiscalDateEnding',''), 'surprise': q.get('surprisePercentage','')} for q in quarters]
     return cached('earnings_' + ticker, fn)
 
 def fred_val(series_id):
     def fn():
         try:
-            r = requests.get(
-                'https://api.stlouisfed.org/fred/series/observations',
-                params={
-                    'series_id': series_id,
-                    'api_key': FRED_KEY,
-                    'file_type': 'json',
-                    'limit': 1,
-                    'sort_order': 'desc'
-                },
-                timeout=8
-            )
+            r = requests.get('https://api.stlouisfed.org/fred/series/observations',
+                params={'series_id': series_id, 'api_key': FRED_KEY, 'file_type': 'json', 'limit': 1, 'sort_order': 'desc'},
+                timeout=8)
             obs = r.json().get('observations', [])
             return obs[0].get('value', 'N/A') if obs else 'N/A'
         except:
@@ -107,70 +89,117 @@ def get_macro():
     return {
         'us10y':  fred_val('DGS10'),
         'oil':    fred_val('DCOILWTICO'),
-        'gold':   fred_val('GOLDAMGBD228NLBM'),
         'usdyen': fred_val('DEXJPUS'),
-        'eurusd': fred_val('DEXUSEU'),
     }
 
-SYSTEM_PROMPT = """You are an investment analyst using a 3-layer framework.
-Respond ONLY with a JSON object. No markdown. No explanation. No text before or after the JSON.
-Use only simple ASCII characters in all string values. No smart quotes, no em dashes, no special characters.
-Use simple apostrophes (') not curly quotes. Use hyphens (-) not dashes.
+# Japanese translation tables
+VERDICT_JA = {
+    'STRONG BUY': 'kyoi kaikomi',
+    'BUY': 'kaikomi',
+    'WATCH': 'yousu mi',
+    'PASS': 'miokuri',
+    'STRONG PASS': 'kyoi miokuri',
+}
 
-The JSON must follow this exact structure:
-{"verdict":"BUY","verdict_ja":"migi","confidence":70,"summary_en":"text","summary_ja":"text","layer1":{"score":6,"signal":"NEUTRAL","key_points_en":["p1","p2"],"key_points_ja":["p1","p2"]},"layer2":{"score":7,"signal":"STRONG","key_points_en":["p1","p2"],"key_points_ja":["p1","p2"]},"layer3":{"score":5,"signal":"FAIR","key_points_en":["p1","p2"],"key_points_ja":["p1","p2"]},"distortion":{"found":false,"description_en":null,"description_ja":null},"risks_en":["r1","r2"],"risks_ja":["r1","r2"],"catalysts_en":["c1","c2"],"catalysts_ja":["c1","c2"]}
+SIGNAL1_JA = {'TAILWIND': 'oikaze', 'NEUTRAL': 'chuuritsu', 'HEADWIND': 'mukaikaze'}
+SIGNAL2_JA = {'STRONG': 'kyoi', 'NEUTRAL': 'chuuritsu', 'WEAK': 'jakui'}
+SIGNAL3_JA = {'UNDERVALUED': 'waiyasu', 'FAIR': 'tekisei', 'OVERVALUED': 'waridaka'}
 
-Allowed verdict values: STRONG BUY, BUY, WATCH, PASS, STRONG PASS
-Allowed verdict_ja values: kyoi kaikomi, kaikomi, yousu mi, miokuri, kyoi miokuri
-Allowed layer1 signal: TAILWIND, NEUTRAL, HEADWIND
-Allowed layer2 signal: STRONG, NEUTRAL, WEAK
-Allowed layer3 signal: UNDERVALUED, FAIR, OVERVALUED"""
+SYSTEM_PROMPT = """You are an investment analyst. Output ONLY a JSON object with NO Japanese text anywhere.
+All values must use ASCII characters only. No Unicode, no special chars, no curly quotes, no em dashes.
+
+Required JSON structure (fill in real analysis):
+{
+  "verdict": "BUY",
+  "confidence": 72,
+  "summary_en": "Short plain English summary under 150 chars",
+  "layer1": {
+    "score": 6,
+    "signal": "NEUTRAL",
+    "points": ["point one under 80 chars", "point two under 80 chars"]
+  },
+  "layer2": {
+    "score": 7,
+    "signal": "STRONG",
+    "points": ["point one", "point two"]
+  },
+  "layer3": {
+    "score": 5,
+    "signal": "FAIR",
+    "points": ["point one", "point two"]
+  },
+  "distortion_found": false,
+  "distortion_en": null,
+  "risks": ["risk one", "risk two"],
+  "catalysts": ["catalyst one", "catalyst two"]
+}
+
+verdict must be one of: STRONG BUY, BUY, WATCH, PASS, STRONG PASS
+layer1 signal: TAILWIND, NEUTRAL, or HEADWIND
+layer2 signal: STRONG, NEUTRAL, or WEAK
+layer3 signal: UNDERVALUED, FAIR, or OVERVALUED
+Output ONLY the JSON. No text before or after."""
 
 def run_analysis(ticker, overview, quote, earnings, macro, horizon='mid'):
     horizon_map = {
-        'short': 'SHORT TERM 1-3 months: focus on momentum and near-term catalysts',
-        'mid':   'MID TERM 3-12 months: focus on earnings trajectory and margins',
-        'long':  'LONG TERM 1-3 years: focus on competitive moat and macro cycle',
+        'short': 'SHORT TERM 1-3 months: weight technicals and near-term catalysts most',
+        'mid':   'MID TERM 3-12 months: weight earnings momentum and margins most',
+        'long':  'LONG TERM 1-3 years: weight competitive moat and macro cycle most',
     }
     htext = horizon_map.get(horizon, horizon_map['mid'])
 
-    lines = [
-        "Analyze " + ticker + " | Horizon: " + htext,
-        "Sector: " + str(overview.get('sector', '')),
-        "Price: " + str(quote.get('price', '')) + " | Change: " + str(quote.get('change_pct', '')),
-        "52W High: " + str(overview.get('52w_high', '')) + " | Low: " + str(overview.get('52w_low', '')) + " | Target: " + str(overview.get('analyst_target', '')),
-        "PE: " + str(overview.get('pe_ratio', '')) + " | PB: " + str(overview.get('pb_ratio', '')) + " | PS: " + str(overview.get('ps_ratio', '')),
-        "EPS: " + str(overview.get('eps_ttm', '')) + " | EPS Growth: " + str(overview.get('eps_growth', '')),
-        "Rev Growth: " + str(overview.get('revenue_growth', '')) + " | Op Margin: " + str(overview.get('op_margin', '')),
-        "Beta: " + str(overview.get('beta', '')) + " | Profit Margin: " + str(overview.get('profit_margin', '')),
-        "Earnings surprises: " + str(earnings),
-        "US 10Y: " + str(macro.get('us10y', '')) + "% | Oil: " + str(macro.get('oil', '')) + " | USD/JPY: " + str(macro.get('usdyen', '')),
-    ]
-    prompt = "\n".join(lines) + "\n\nOutput JSON only."
+    prompt = "\n".join([
+        "TICKER: " + ticker + " | HORIZON: " + htext,
+        "Sector: " + str(overview.get('sector','')),
+        "Price: $" + str(quote.get('price','')) + " | Change: " + str(quote.get('change_pct','')),
+        "52W: High=" + str(overview.get('52w_high','')) + " Low=" + str(overview.get('52w_low','')) + " AnalystTarget=" + str(overview.get('analyst_target','')),
+        "Valuation: PE=" + str(overview.get('pe_ratio','')) + " PB=" + str(overview.get('pb_ratio','')) + " PS=" + str(overview.get('ps_ratio','')),
+        "Fundamentals: EPS=" + str(overview.get('eps_ttm','')) + " EPSgrowth=" + str(overview.get('eps_growth','')) + " RevGrowth=" + str(overview.get('revenue_growth','')),
+        "Margins: OpMargin=" + str(overview.get('op_margin','')) + " ProfitMargin=" + str(overview.get('profit_margin','')),
+        "Beta=" + str(overview.get('beta','')) + " MktCap=" + str(overview.get('mkt_cap','')),
+        "Recent EPS surprises: " + str(earnings),
+        "MACRO: US10Y=" + str(macro.get('us10y','')) + "% Oil=$" + str(macro.get('oil','')) + " USD/JPY=" + str(macro.get('usdyen','')),
+        "",
+        "Output JSON only. ASCII characters only in all string values.",
+    ])
 
     try:
         msg = client.messages.create(
             model='claude-sonnet-4-6',
-            max_tokens=1200,
+            max_tokens=1000,
             system=SYSTEM_PROMPT,
             messages=[{'role': 'user', 'content': prompt}]
         )
         raw = msg.content[0].text.strip()
 
-        # Extract JSON
+        # Extract JSON boundaries
         start = raw.find('{')
         end = raw.rfind('}')
         if start == -1 or end == -1:
-            return {'error': 'No JSON found in response'}
-        text = raw[start:end + 1]
+            return {'error': 'No JSON in response'}
+        text = raw[start:end+1]
 
-        # Clean non-ASCII
+        # Force ASCII only
         text = text.encode('ascii', 'ignore').decode('ascii')
 
-        # Fix common JSON issues
+        # Remove control chars
         text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
 
-        return json.loads(text)
+        data = json.loads(text)
+
+        # Add Japanese translations server-side
+        verdict = data.get('verdict', 'WATCH')
+        data['verdict_ja'] = VERDICT_JA.get(verdict, verdict)
+
+        l1 = data.get('layer1', {})
+        l2 = data.get('layer2', {})
+        l3 = data.get('layer3', {})
+
+        l1['signal_ja'] = SIGNAL1_JA.get(l1.get('signal',''), l1.get('signal',''))
+        l2['signal_ja'] = SIGNAL2_JA.get(l2.get('signal',''), l2.get('signal',''))
+        l3['signal_ja'] = SIGNAL3_JA.get(l3.get('signal',''), l3.get('signal',''))
+
+        return data
 
     except json.JSONDecodeError as e:
         return {'error': 'JSON parse error: ' + str(e)}
@@ -220,7 +249,7 @@ def analyze():
 
 @app.route('/api/health')
 def health():
-    return jsonify({'status': 'ok', 'ticker_cache': len(cache)})
+    return jsonify({'status': 'ok'})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

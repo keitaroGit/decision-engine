@@ -250,28 +250,38 @@ function formatChange(chg) {
 function renderResult(data) {
   var a = data.analysis;
   var l = LANG;
-  var vc = verdictClass(a.verdict);
+  var vc = (a.verdict || 'watch').toLowerCase().replace(' ', '-');
 
-  var layerNames = {
-    en: ['Macro Environment', 'Fundamental Engine', 'Supply & Demand'],
-    ja: ['マクロ環境', 'ファンダメンタルズ', '需給・バリュエーション']
-  };
+  var l1 = a.layer1 || {};
+  var l2 = a.layer2 || {};
+  var l3 = a.layer3 || {};
 
-  var signalLabels = {
-    TAILWIND:'TAILWIND',NEUTRAL:'NEUTRAL',HEADWIND:'HEADWIND',
-    STRONG:'STRONG',WEAK:'WEAK',
-    UNDERVALUED:'UNDERVALUED',FAIR:'FAIR',OVERVALUED:'OVERVALUED'
-  };
-  var signalLabelsJa = {
-    TAILWIND:'追い風',NEUTRAL:'中立',HEADWIND:'向かい風',
-    STRONG:'強い',WEAK:'弱い',
-    UNDERVALUED:'割安',FAIR:'適正',OVERVALUED:'割高'
-  };
+  function signalClass(sig) {
+    sig = (sig||'').toUpperCase();
+    if (['TAILWIND','STRONG','UNDERVALUED'].indexOf(sig) >= 0) return 'signal-green';
+    if (['HEADWIND','WEAK','OVERVALUED'].indexOf(sig) >= 0) return 'signal-red';
+    return 'signal-amber';
+  }
+
+  function scoreColor(s) {
+    if (s >= 7) return '#10b981';
+    if (s >= 5) return '#f59e0b';
+    return '#ef4444';
+  }
+
+  function formatChange(chg) {
+    if (!chg || chg === 'N/A') return '';
+    chg = chg.replace('%','').trim();
+    var n = parseFloat(chg);
+    var cls = n >= 0 ? 'price-up' : 'price-down';
+    return '<span class="'+cls+'">'+(n>=0?'+':'')+chg+'%</span>';
+  }
 
   function layerHTML(layer, data, idx) {
-    var name = layerNames[l][idx];
-    var signal = l==='en' ? (signalLabels[data.signal]||data.signal) : (signalLabelsJa[data.signal]||data.signal);
-    var points = l==='en' ? data.key_points_en : data.key_points_ja;
+    var names = {en: ['Macro Environment','Fundamental Engine','Supply & Demand'], ja: ['macro kankyo','fandamentaru enjin','jukyuu baransu']};
+    var name = names[l][idx];
+    var signal = l==='en' ? (data.signal||'') : (data.signal_ja||data.signal||'');
+    var points = data.points || [];
     var sc = data.score || 5;
     return '<div class="layer-card">' +
       '<div class="layer-title">Layer '+(idx+1)+'</div>' +
@@ -280,85 +290,64 @@ function renderResult(data) {
       '<div class="score-row">' +
         '<div class="score-num" style="color:'+scoreColor(sc)+'">'+sc+'</div>' +
         '<div class="score-bar"><div class="score-fill" style="width:'+(sc*10)+'%;background:'+scoreColor(sc)+'"></div></div>' +
-        '<div style="font-size:10px;color:var(--text3);font-family:\'DM Mono\',monospace">/10</div>' +
+        '<div style="font-size:10px;color:var(--text3);font-family:monospace">/10</div>' +
       '</div>' +
-      '<ul class="layer-points">'+(points||[]).map(function(p){return '<li>'+p+'</li>';}).join('')+'</ul>' +
+      '<ul class="layer-points">'+points.map(function(p){return '<li>'+p+'</li>';}).join('')+'</ul>' +
     '</div>';
   }
+
+  var verdictLabel = l==='en' ? a.verdict : (a.verdict_ja || a.verdict);
+  var summary = a.summary_en || '';
+  var horizonTag = data.horizon || 'mid';
 
   var distHTML = '';
-  if (a.distortion && a.distortion.found) {
-    var desc = l==='en' ? a.distortion.description_en : a.distortion.description_ja;
+  if (a.distortion_found && a.distortion_en) {
     distHTML = '<div class="distortion-box">' +
-      '<div class="dist-header"><span class="dist-icon">⚡</span><span class="dist-title">'+(l==='en'?'Inter-Layer Distortion Detected':'レイヤー間の歪み（Distortion）を検出')+'</span></div>' +
-      '<div class="dist-body">'+desc+'</div>' +
+      '<div class="dist-header"><span class="dist-icon">lightning</span><span class="dist-title">'+(l==='en'?'Distortion Detected':'Distortion Detected')+'</span></div>' +
+      '<div class="dist-body">'+a.distortion_en+'</div>' +
     '</div>';
   }
 
-  var risks = l==='en' ? a.risks_en : a.risks_ja;
-  var catalysts = l==='en' ? a.catalysts_en : a.catalysts_ja;
-
-  var verdictLabel = l==='en' ? a.verdict : a.verdict_ja;
-  var summary = l==='en' ? a.summary_en : a.summary_ja;
-  var confLabel = l==='en' ? 'Confidence' : '確信度';
-  var rawLabel = l==='en' ? '▾ Show raw data' : '▾ 生データを表示';
-  var riskLabel = l==='en' ? 'Key Risks' : '主要リスク';
-  var catalystLabel = l==='en' ? 'Catalysts' : 'カタリスト';
+  var risks = a.risks || [];
+  var catalysts = a.catalysts || [];
 
   var raw = data.raw || {};
   var ov = raw.overview || {};
   var rawItems = [
-    {k:'PE Ratio',v:ov.pe_ratio},{k:'PB Ratio',v:ov.pb_ratio},{k:'PS Ratio',v:ov.ps_ratio},
-    {k:'EPS TTM',v:ov.eps_ttm},{k:'EPS Growth',v:ov.eps_growth},{k:'Rev Growth',v:ov.revenue_growth},
-    {k:'Op Margin',v:ov.op_margin},{k:'Profit Margin',v:ov.profit_margin},
-    {k:'Beta',v:ov.beta},{k:'Div Yield',v:ov.dividend_yield},
+    {k:'PE',v:ov.pe_ratio},{k:'PB',v:ov.pb_ratio},{k:'PS',v:ov.ps_ratio},
+    {k:'EPS',v:ov.eps_ttm},{k:'EPS Growth',v:ov.eps_growth},{k:'Rev Growth',v:ov.revenue_growth},
+    {k:'Op Margin',v:ov.op_margin},{k:'Beta',v:ov.beta},
     {k:'52W High',v:'$'+ov['52w_high']},{k:'52W Low',v:'$'+ov['52w_low']},
-    {k:'Analyst Target',v:'$'+ov.analyst_target},{k:'Market Cap',v:ov.mkt_cap},
-    {k:'US 10Y',v:(raw.macro||{}).us10y+'%'},{k:'WTI Oil',v:'$'+(raw.macro||{}).oil},
-    {k:'USD/JPY',v:(raw.macro||{}).usdyen},{k:'EUR/USD',v:(raw.macro||{}).eurusd},
+    {k:'Analyst Target',v:'$'+ov.analyst_target},
+    {k:'US 10Y',v:(raw.macro||{}).us10y+'%'},{k:'Oil',v:'$'+(raw.macro||{}).oil},
   ];
 
   var html =
-    '<button class="back-btn" onclick="goBack()">' + (l==='ja' ? '← 検索に戻る' : '← Back to search') + '</button>' +
+    '<button class="back-btn" onclick="goBack()">' + (l==='ja'?'Back to search':'Back to search') + '</button>' +
     '<div class="verdict-card '+vc+'">' +
       '<div class="verdict-header">' +
         '<div class="ticker-block">' +
-          '<div class="ticker">'+data.ticker+
-            '<span class="horizon-tag horizon-'+(data.horizon||'mid')+'">'+(data.horizon||'mid').toUpperCase()+'</span>'+
-          '</div>' +
+          '<div class="ticker">'+data.ticker+'<span class="horizon-tag horizon-'+horizonTag+'">'+horizonTag.toUpperCase()+'</span></div>' +
           '<div class="company">'+data.name+'</div>' +
-          '<div class="price" style="margin-top:6px">' +
-            '<span style="font-family:\'DM Mono\',monospace;font-size:18px;font-weight:600">$'+data.price+'</span> ' +
-            formatChange(data.change) +
-          '</div>' +
+          '<div class="price" style="margin-top:6px"><span style="font-family:monospace;font-size:18px;font-weight:600">$'+data.price+'</span> '+formatChange(data.change)+'</div>' +
         '</div>' +
         '<div class="verdict-badge">' +
           '<div class="badge '+vc+'">'+verdictLabel+'</div>' +
-          '<div class="confidence">'+confLabel+': '+a.confidence+'%</div>' +
+          '<div class="confidence">Confidence: '+a.confidence+'%</div>' +
           '<div class="conf-bar"><div class="conf-fill" style="width:'+a.confidence+'%"></div></div>' +
         '</div>' +
       '</div>' +
       '<div class="verdict-summary">'+summary+'</div>' +
     '</div>' +
-
-    '<div class="layers">' +
-      layerHTML('layer1', a.layer1||{}, 0) +
-      layerHTML('layer2', a.layer2||{}, 1) +
-      layerHTML('layer3', a.layer3||{}, 2) +
-    '</div>' +
-
+    '<div class="layers">'+layerHTML('l1',l1,0)+layerHTML('l2',l2,1)+layerHTML('l3',l3,2)+'</div>' +
     distHTML +
-
     '<div class="rc-grid">' +
-      '<div class="rc-card"><div class="rc-title risk">'+riskLabel+'</div><ul class="rc-list risk">'+(risks||[]).map(function(r){return '<li>'+r+'</li>';}).join('')+'</ul></div>' +
-      '<div class="rc-card"><div class="rc-title catalyst">'+catalystLabel+'</div><ul class="rc-list catalyst">'+(catalysts||[]).map(function(c){return '<li>'+c+'</li>';}).join('')+'</ul></div>' +
+      '<div class="rc-card"><div class="rc-title risk">'+(l==='en'?'Key Risks':'Risks')+'</div><ul class="rc-list risk">'+risks.map(function(r){return '<li>'+r+'</li>';}).join('')+'</ul></div>' +
+      '<div class="rc-card"><div class="rc-title catalyst">'+(l==='en'?'Catalysts':'Catalysts')+'</div><ul class="rc-list catalyst">'+catalysts.map(function(c){return '<li>'+c+'</li>';}).join('')+'</ul></div>' +
     '</div>' +
-
-    '<button class="raw-toggle" onclick="toggleRaw(this)">'+rawLabel+'</button>' +
+    '<button class="raw-toggle" onclick="toggleRaw(this)">' + (l==='en'?'Show raw data':'Show raw data') + '</button>' +
     '<div class="raw-data" id="raw-data">' +
-      '<div class="raw-grid">' +
-        rawItems.map(function(it){return '<div class="raw-item"><span class="raw-key">'+it.k+'</span><span class="raw-val">'+(it.v||'N/A')+'</span></div>';}).join('') +
-      '</div>' +
+      '<div class="raw-grid">'+rawItems.map(function(it){return '<div class="raw-item"><span class="raw-key">'+it.k+'</span><span class="raw-val">'+(it.v||'N/A')+'</span></div>';}).join('')+'</div>' +
     '</div>';
 
   var resultEl = document.getElementById('result');
