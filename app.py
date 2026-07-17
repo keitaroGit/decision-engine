@@ -1,4 +1,5 @@
 import os, requests, json, time, re
+from datetime import datetime
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from anthropic import Anthropic
@@ -177,7 +178,7 @@ def run_analysis(ticker, overview, quote, earnings, macro, horizon='mid', lang='
     htext = horizon_map.get(horizon, horizon_map['mid'])
 
     prompt = "\n".join([
-        "TICKER: " + ticker + " | HORIZON: " + htext,
+        "TODAY'S DATE: " + datetime.now().strftime("%Y-%m-%d") + " | TICKER: " + ticker + " | HORIZON: " + htext,
         "Sector: " + str(overview.get('sector','')),
         "Price: $" + str(quote.get('price','')) + " | Change: " + str(quote.get('change_pct','')),
         "52W: High=" + str(overview.get('52w_high','')) + " Low=" + str(overview.get('52w_low','')) + " AnalystTarget=" + str(overview.get('analyst_target','')),
