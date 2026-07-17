@@ -12,6 +12,7 @@ CORS(app)
 ALPHA_KEY  = os.environ.get('ALPHA_VANTAGE_KEY', '')
 FRED_KEY   = os.environ.get('FRED_API_KEY', '')
 CLAUDE_KEY = os.environ.get('CLAUDE_API_KEY', '')
+NEWS_KEY  = os.environ.get('NEWS_API_KEY', '')
 
 client = Anthropic(api_key=CLAUDE_KEY)
 
@@ -105,6 +106,33 @@ SIGNAL1_JA = {'TAILWIND': '追い風', 'NEUTRAL': '中立', 'HEADWIND': '向か�
 SIGNAL2_JA = {'STRONG': '強い', 'NEUTRAL': '中立', 'WEAK': '弱い'}
 SIGNAL3_JA = {'UNDERVALUED': '割安', 'FAIR': '適正', 'OVERVALUED': '割高'}
 
+
+def get_news(ticker, company_name):
+    """Fetch latest news for ticker from NewsAPI"""
+    def fn():
+        try:
+            # Search by company name for better results
+            query = company_name if company_name and company_name != ticker else ticker
+            r = requests.get('https://newsapi.org/v2/everything', params={
+                'q': query,
+                'apiKey': NEWS_KEY,
+                'language': 'en',
+                'sortBy': 'publishedAt',
+                'pageSize': 5,
+            }, timeout=8)
+            articles = r.json().get('articles', [])
+            news = []
+            for a in articles:
+                title = a.get('title', '')
+                source = a.get('source', {}).get('name', '')
+                date = a.get('publishedAt', '')[:10]
+                if title and '[Removed]' not in title:
+                    news.append(date + ' [' + source + '] ' + title)
+            return news[:5]
+        except:
+            return []
+    return cached('news_' + ticker, fn)
+
 SYSTEM_PROMPT = """You are an investment analyst. Output ONLY a JSON object with NO Japanese text anywhere.
 All values must use ASCII characters only. No Unicode, no special chars, no curly quotes, no em dashes.
 
@@ -140,7 +168,7 @@ layer2 signal: STRONG, NEUTRAL, or WEAK
 layer3 signal: UNDERVALUED, FAIR, or OVERVALUED
 Output ONLY the JSON. No text before or after."""
 
-def run_analysis(ticker, overview, quote, earnings, macro, horizon='mid', lang='en'):
+def run_analysis(ticker, overview, quote, earnings, macro, horizon='mid', lang='en', news=None):
     horizon_map = {
         'short': 'SHORT TERM 1-3 months: weight technicals and near-term catalysts most',
         'mid':   'MID TERM 3-12 months: weight earnings momentum and margins most',
@@ -160,6 +188,7 @@ def run_analysis(ticker, overview, quote, earnings, macro, horizon='mid', lang='
         "Recent EPS surprises: " + str(earnings),
         "MACRO: US10Y=" + str(macro.get('us10y','')) + "% Oil=$" + str(macro.get('oil','')) + " USD/JPY=" + str(macro.get('usdyen','')),
         "",
+        ("LATEST NEWS (use this for current competitive landscape and recent events):\n" + "\n".join(news) + "\n" if news else "") +
         "Output JSON only." + (" IMPORTANT: Write ALL text values (summary_en, all points array items, risks, catalysts, distortion_en) in JAPANESE language. Keep JSON keys in English." if lang=="ja" else " Use English for all text values."),
     ])
 
@@ -275,7 +304,8 @@ def analyze():
     if not overview.get('name') or overview.get('name') == '':
         return jsonify({'error': 'Ticker not found: ' + ticker}), 404
 
-    result = run_analysis(ticker, overview, quote, earnings, macro, horizon, lang)
+    news     = get_news(ticker, overview.get('name', ticker))
+    result = run_analysis(ticker, overview, quote, earnings, macro, horizon, lang, news)
 
     if 'error' in result:
         return jsonify(result), 500
@@ -292,6 +322,7 @@ def analyze():
         'horizon':  horizon,
         'analysis': result,
         'raw': {
+            'news': news,
             'overview': overview,
             'quote':    quote,
             'earnings': earnings,
