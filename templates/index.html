@@ -152,6 +152,12 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:1
 .horizon-short{background:rgba(239,68,68,0.15);color:#fca5a5}
 .horizon-mid{background:rgba(79,158,255,0.15);color:#93c5fd}
 .horizon-long{background:rgba(0,212,160,0.15);color:var(--accent)}
+.news-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px}
+.news-title{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.news-title::before{content:'📰';font-size:12px}
+.news-item{font-size:12px;color:var(--text2);line-height:1.6;padding:6px 0;border-bottom:0.5px solid var(--border);display:flex;gap:8px}
+.news-item:last-child{border-bottom:none}
+.news-item::before{content:'·';color:var(--accent);flex-shrink:0;font-size:16px;line-height:1.2}
 </style>
 </head>
 <body>
@@ -350,6 +356,14 @@ function renderResult(data) {
     '</div>' +
     '<div class="layers">'+layerHTML('l1',l1,0)+layerHTML('l2',l2,1)+layerHTML('l3',l3,2)+'</div>' +
     distHTML +
+    (function() {
+      var newsSummary = (l==='ja' && a.news_summary_ja) ? a.news_summary_ja : (a.news_summary || []);
+      if (!newsSummary.length) return '';
+      var label = l==='ja' ? '最新ニュース要約' : 'Latest News Summary';
+      return '<div class="news-box"><div class="news-title">'+label+'</div>' +
+        newsSummary.map(function(n){return '<div class="news-item">'+n+'</div>';}).join('') +
+      '</div>';
+    })() +
     '<div class="rc-grid">' +
       '<div class="rc-card"><div class="rc-title risk">'+(l==='en'?'Key Risks':'主要リスク')+'</div><ul class="rc-list risk">'+risks.map(function(r){return '<li>'+r+'</li>';}).join('')+'</ul></div>' +
       '<div class="rc-card"><div class="rc-title catalyst">'+(l==='en'?'Catalysts':'カタリスト')+'</div><ul class="rc-list catalyst">'+catalysts.map(function(c){return '<li>'+c+'</li>';}).join('')+'</ul></div>' +

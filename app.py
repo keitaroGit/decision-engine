@@ -159,8 +159,9 @@ Required JSON structure (fill in real analysis):
   },
   "distortion_found": false,
   "distortion_en": null,
-  "risks": ["risk one", "risk two"],
-  "catalysts": ["catalyst one", "catalyst two"]
+  "risks": ["risk one under 120 chars", "risk two", "risk three"],
+  "catalysts": ["catalyst one under 120 chars", "catalyst two", "catalyst three"],
+  "news_summary": ["1-sentence summary of most important recent news item", "second news item if relevant"]
 }
 
 verdict must be one of: STRONG BUY, BUY, WATCH, PASS, STRONG PASS
@@ -196,7 +197,7 @@ def run_analysis(ticker, overview, quote, earnings, macro, horizon='mid', lang='
     try:
         msg = client.messages.create(
             model='claude-sonnet-4-6',
-            max_tokens=1000,
+            max_tokens=1800,
             system=SYSTEM_PROMPT,
             messages=[{'role': 'user', 'content': prompt}]
         )
@@ -247,6 +248,7 @@ def translate_to_japanese(data):
         'risks': data.get('risks', []),
         'catalysts': data.get('catalysts', []),
         'distortion': data.get('distortion_en', ''),
+        'news_summary': data.get('news_summary', []),
     }
 
     prompt = "Translate these investment analysis texts to natural Japanese. Return ONLY a JSON object with the same keys. Keep numbers, tickers, and percentages as-is.\n\n" + json.dumps(fields_to_translate, ensure_ascii=True)
@@ -254,7 +256,7 @@ def translate_to_japanese(data):
     try:
         msg = client.messages.create(
             model='claude-sonnet-4-6',
-            max_tokens=1000,
+            max_tokens=1800,
             system="You are a financial translator. Translate English investment analysis to Japanese. Return ONLY a valid JSON object with the same structure as input. No other text.",
             messages=[{'role': 'user', 'content': prompt}]
         )
@@ -278,6 +280,8 @@ def translate_to_japanese(data):
                 data['catalysts_ja'] = translated['catalysts']
             if 'distortion' in translated and translated['distortion']:
                 data['distortion_ja'] = translated['distortion']
+            if 'news_summary' in translated:
+                data['news_summary_ja'] = translated['news_summary']
     except Exception as e:
         pass  # Keep English if translation fails
     return data
