@@ -155,6 +155,11 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:1
 .news-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px}
 .news-title{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:6px}
 .news-title::before{content:'📰';font-size:12px}
+.horizon-warning{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px}
+.horizon-warning-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.horizon-warning-text{font-size:12px;color:rgba(245,158,11,0.9);line-height:1.6}
+.horizon-switch-btn{background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);border-radius:5px;padding:5px 12px;font-size:11px;color:#fcd34d;cursor:pointer;margin-top:6px;font-family:monospace;letter-spacing:.04em;transition:all .15s}
+.horizon-switch-btn:hover{background:rgba(245,158,11,0.25)}
 .news-item{font-size:12px;color:var(--text2);line-height:1.6;padding:6px 0;border-bottom:0.5px solid var(--border);display:flex;gap:8px}
 .news-item:last-child{border-bottom:none}
 .news-item::before{content:'·';color:var(--accent);flex-shrink:0;font-size:16px;line-height:1.2}
@@ -339,12 +344,33 @@ function renderResult(data) {
 
   var html =
     '<button class="back-btn" onclick="goBack()">' + (l==='ja'?'検索に戻る':'Back to search') + '</button>' +
+    (data.horizon === 'short' && (data.price === 'N/A' || !data.price) ?
+      '<div class="horizon-warning">' +
+        '<span class="horizon-warning-icon">⚠</span>' +
+        '<div>' +
+          '<div class="horizon-warning-text">' +
+            (l==='ja' ?
+              '短期分析にはリアルタイム株価・テクニカル指標が必要です。現在株価データが取得できないため、短期分析の精度が低下しています。' :
+              'SHORT TERM analysis requires real-time price data and technical indicators (RSI, MACD). Results may be limited without live price data.'
+            ) +
+          '</div>' +
+          '<button class="horizon-switch-btn" onclick="switchToMid()">' +
+            (l==='ja' ? '→ MID TERM（3〜12ヶ月）で再分析する' : '→ Switch to MID TERM for better results') +
+          '</button>' +
+        '</div>' +
+      '</div>'
+    : '') +
     '<div class="verdict-card '+vc+'">' +
       '<div class="verdict-header">' +
         '<div class="ticker-block">' +
           '<div class="ticker">'+data.ticker+'<span class="horizon-tag horizon-'+horizonTag+'">'+horizonTag.toUpperCase()+'</span></div>' +
           '<div class="company">'+data.name+'</div>' +
-          '<div class="price" style="margin-top:6px"><span style="font-family:monospace;font-size:18px;font-weight:600">$'+data.price+'</span> '+formatChange(data.change)+'</div>' +
+          '<div class="price" style="margin-top:6px">' +
+          '<span style="font-family:monospace;font-size:18px;font-weight:600">$'+data.price+'</span> ' +
+          formatChange(data.change) +
+          ((data.raw && data.raw.quote && data.raw.quote.high && data.raw.quote.high !== 'N/A') ?
+            '<span style="font-size:10px;color:var(--text3);margin-left:8px;font-family:monospace">H:$'+data.raw.quote.high+' L:$'+data.raw.quote.low+'</span>' : '') +
+        '</div>' +
         '</div>' +
         '<div class="verdict-badge">' +
           '<div class="badge '+vc+'">'+verdictLabel+'</div>' +
@@ -420,6 +446,16 @@ function goBack() {
   document.getElementById('result').dataset.result = '';
   document.getElementById('error-box').style.display = 'none';
   document.getElementById('ticker-input').focus();
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function switchToMid() {
+  // Switch to MID TERM and re-analyze same ticker
+  HORIZON = 'mid';
+  document.querySelectorAll('.horizon-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('h-mid').classList.add('active');
+  var ticker = document.getElementById('ticker-input').value;
+  if (ticker) analyze();
   window.scrollTo({top: 0, behavior: 'smooth'});
 }
 }
@@ -516,6 +552,16 @@ function goBack() {
   document.getElementById('result').dataset.result = '';
   document.getElementById('error-box').style.display = 'none';
   document.getElementById('ticker-input').focus();
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function switchToMid() {
+  // Switch to MID TERM and re-analyze same ticker
+  HORIZON = 'mid';
+  document.querySelectorAll('.horizon-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('h-mid').classList.add('active');
+  var ticker = document.getElementById('ticker-input').value;
+  if (ticker) analyze();
   window.scrollTo({top: 0, behavior: 'smooth'});
 }
 </script>

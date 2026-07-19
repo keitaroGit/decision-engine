@@ -13,7 +13,8 @@ CORS(app)
 ALPHA_KEY  = os.environ.get('ALPHA_VANTAGE_KEY', '')
 FRED_KEY   = os.environ.get('FRED_API_KEY', '')
 CLAUDE_KEY = os.environ.get('CLAUDE_API_KEY', '')
-NEWS_KEY  = os.environ.get('NEWS_API_KEY', '')
+NEWS_KEY    = os.environ.get('NEWS_API_KEY', '')
+FINNHUB_KEY = os.environ.get('FINNHUB_API_KEY', '')
 
 client = Anthropic(api_key=CLAUDE_KEY)
 
@@ -38,12 +39,42 @@ def av(params):
 
 def get_quote(ticker):
     def fn():
-        d = av({'function': 'GLOBAL_QUOTE', 'symbol': ticker})
-        q = d.get('Global Quote', {})
-        return {
-            'price':      q.get('05. price', 'N/A'),
-            'change_pct': q.get('10. change percent', 'N/A'),
-        }
+        # Try Finnhub first (60 req/min free)
+        try:
+            if FINNHUB_KEY:
+                r = requests.get('https://finnhub.io/api/v1/quote', params={
+                    'symbol': ticker,
+                    'token': FINNHUB_KEY,
+                }, timeout=8)
+                d = r.json()
+                price = d.get('c', 0)  # current price
+                prev  = d.get('pc', 0) # previous close
+                if price and price > 0:
+                    change_pct = ((price - prev) / prev * 100) if prev else 0
+                    return {
+                        'price':      str(round(price, 2)),
+                        'change_pct': str(round(change_pct, 2)) + '%',
+                        'high':       str(d.get('h', 'N/A')),
+                        'low':        str(d.get('l', 'N/A')),
+                        'open':       str(d.get('o', 'N/A')),
+                        'source':     'finnhub',
+                    }
+        except:
+            pass
+        # Fallback to Alpha Vantage
+        try:
+            d = av({'function': 'GLOBAL_QUOTE', 'symbol': ticker})
+            q = d.get('Global Quote', {})
+            price = q.get('05. price', '')
+            if price:
+                return {
+                    'price':      price,
+                    'change_pct': q.get('10. change percent', 'N/A'),
+                    'source':     'alphavantage',
+                }
+        except:
+            pass
+        return {'price': 'N/A', 'change_pct': 'N/A', 'source': 'none'}
     return cached('quote_' + ticker, fn)
 
 def get_overview(ticker):
@@ -109,30 +140,46 @@ SIGNAL3_JA = {'UNDERVALUED': '割安', 'FAIR': '適正', 'OVERVALUED': '割高'}
 
 
 def get_news(ticker, company_name):
-    """Fetch latest news for ticker from NewsAPI"""
+    """Fetch latest news for ticker from NewsAPI - last 30 days only"""
     def fn():
         try:
-            # Search by company name for better results
+            from datetime import datetime, timedelta
+            # Only get news from last 30 days
+            date_from = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
             query = company_name if company_name and company_name != ticker else ticker
+            # Remove common suffixes for better search
+            query = query.replace(' Inc.', '').replace(' Corp.', '').replace(' Ltd.', '').strip()
             r = requests.get('https://newsapi.org/v2/everything', params={
                 'q': query,
                 'apiKey': NEWS_KEY,
                 'language': 'en',
                 'sortBy': 'publishedAt',
-                'pageSize': 5,
+                'pageSize': 8,
+                'from': date_from,
             }, timeout=8)
             articles = r.json().get('articles', [])
             news = []
             for a in articles:
                 title = a.get('title', '')
                 source = a.get('source', {}).get('name', '')
-                date = a.get('publishedAt', '')[:10]
-                if title and '[Removed]' not in title:
-                    news.append(date + ' [' + source + '] ' + title)
+                published = a.get('publishedAt', '')[:10]
+                if title and '[Removed]' not in title and source:
+                    news.append({
+                        'date': published,
+                        'source': source,
+                        'title': title,
+                    })
             return news[:5]
         except:
             return []
-    return cached('news_' + ticker, fn)
+    # Use shorter cache for news (15 min)
+    now = time.time()
+    key = 'news_' + ticker
+    if key in cache and now - cache[key]['ts'] < 900:
+        return cache[key]['data']
+    data = fn()
+    cache[key] = {'data': data, 'ts': now}
+    return data
 
 SYSTEM_PROMPT = """You are an investment analyst. Output ONLY a JSON object with NO Japanese text anywhere.
 All values must use ASCII characters only. No Unicode, no special chars, no curly quotes, no em dashes.
@@ -190,7 +237,7 @@ def run_analysis(ticker, overview, quote, earnings, macro, horizon='mid', lang='
         "Recent EPS surprises: " + str(earnings),
         "MACRO: US10Y=" + str(macro.get('us10y','')) + "% Oil=$" + str(macro.get('oil','')) + " USD/JPY=" + str(macro.get('usdyen','')),
         "",
-        ("LATEST NEWS (use this for current competitive landscape and recent events):\n" + "\n".join(news) + "\n" if news else "") +
+        ("LATEST NEWS from last 30 days (prioritize this over training data for current events):\n" + "\n".join([n['date'] + ' [' + n['source'] + ']: ' + n['title'] for n in news]) + "\n" if news else "") +
         "Output JSON only." + (" IMPORTANT: Write ALL text values (summary_en, all points array items, risks, catalysts, distortion_en) in JAPANESE language. Keep JSON keys in English." if lang=="ja" else " Use English for all text values."),
     ])
 
@@ -328,6 +375,7 @@ def analyze():
         'analysis': result,
         'raw': {
             'news': news,
+            'news_count': len(news),
             'overview': overview,
             'quote':    quote,
             'earnings': earnings,
