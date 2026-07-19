@@ -143,7 +143,7 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:1
 .chip-buy{color:var(--buy)}
 .chip-watch{color:var(--watch)}
 .chip-pass{color:var(--pass)}
-.horizon-wrap{display:flex;gap:6px;margin-top:12px;justify-content:center}
+.horizon-wrap{display:flex;gap:6px;justify-content:center}
 .horizon-btn{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 16px;font-size:11px;font-family:'DM Mono',monospace;letter-spacing:.07em;color:var(--text2);cursor:pointer;transition:all .15s;text-align:center}
 .horizon-btn:hover{border-color:var(--accent2);color:var(--accent2)}
 .horizon-btn.active{border-color:var(--accent);background:rgba(0,212,160,0.1);color:var(--accent)}
@@ -173,16 +173,7 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:1
 </header>
 
 <div class="search-wrap">
-  <div class="search-label">Enter ticker symbol</div>
-  <div class="search-box">
-    <input id="ticker-input" class="search-input" type="text" placeholder="NVDA, AAPL, TSLA..." maxlength="10" autocomplete="off" autocapitalize="characters">
-    <button id="analyze-btn" class="search-btn" onclick="analyze()">Analyze →</button>
-  </div>
-  <div class="lang-toggle">
-    <button class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</button>
-    <button class="lang-btn" id="btn-ja" onclick="setLang('ja')">JA</button>
-  </div>
-  <div class="horizon-wrap">
+  <div class="horizon-wrap" style="margin-bottom:16px">
     <button class="horizon-btn" id="h-short" data-horizon="short">
       <div>SHORT TERM</div><div class="horizon-sub">1–3 months</div>
     </button>
@@ -192,6 +183,15 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:1
     <button class="horizon-btn" id="h-long" data-horizon="long">
       <div>LONG TERM</div><div class="horizon-sub">1–3 years</div>
     </button>
+  </div>
+  <div class="search-label">Enter ticker symbol</div>
+  <div class="search-box">
+    <input id="ticker-input" class="search-input" type="text" placeholder="NVDA, AAPL, TSLA..." maxlength="10" autocomplete="off" autocapitalize="characters">
+    <button id="analyze-btn" class="search-btn" onclick="analyze()">Analyze →</button>
+  </div>
+  <div class="lang-toggle">
+    <button class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" id="btn-ja" onclick="setLang('ja')">JA</button>
   </div>
 </div>
 
@@ -358,11 +358,23 @@ function renderResult(data) {
     distHTML +
     (function() {
       var newsSummary = (l==='ja' && a.news_summary_ja) ? a.news_summary_ja : (a.news_summary || []);
-      if (!newsSummary.length) return '';
-      var label = l==='ja' ? '最新ニュース要約' : 'Latest News Summary';
-      return '<div class="news-box"><div class="news-title">'+label+'</div>' +
-        newsSummary.map(function(n){return '<div class="news-item">'+n+'</div>';}).join('') +
-      '</div>';
+      var rawNews = (data.raw && data.raw.news) ? data.raw.news : [];
+      if (!newsSummary.length && !rawNews.length) return '';
+      var label = l==='ja' ? '最新ニュース（過去30日）' : 'Latest News (last 30 days)';
+      var summaryHTML = newsSummary.map(function(n){return '<div class="news-item">'+n+'</div>';}).join('');
+      var rawHTML = '';
+      if (rawNews.length) {
+        rawHTML = '<div style="margin-top:10px;padding-top:10px;border-top:0.5px solid var(--border)">' +
+          '<div style="font-size:10px;color:var(--text3);margin-bottom:6px;letter-spacing:.05em">' + (l==='ja'?'ソースニュース':'Source Articles') + '</div>' +
+          rawNews.map(function(n){
+            return '<div style="font-size:11px;color:var(--text2);padding:4px 0;border-bottom:0.5px solid var(--border);display:flex;gap:8px;align-items:flex-start">' +
+              '<span style="font-family:monospace;font-size:10px;color:var(--accent);flex-shrink:0;margin-top:1px">'+n.date+'</span>' +
+              '<span style="flex:1">'+n.title+' <span style="color:var(--text3)">['+n.source+']</span></span>' +
+            '</div>';
+          }).join('') +
+        '</div>';
+      }
+      return '<div class="news-box"><div class="news-title">'+label+'</div>' + summaryHTML + rawHTML + '</div>';
     })() +
     '<div class="rc-grid">' +
       '<div class="rc-card"><div class="rc-title risk">'+(l==='en'?'Key Risks':'主要リスク')+'</div><ul class="rc-list risk">'+risks.map(function(r){return '<li>'+r+'</li>';}).join('')+'</ul></div>' +
